@@ -1,78 +1,93 @@
-# Architecture Proposal v0.3 — Paperclip × Agents-OS Core × Hermes
+# Architecture Proposal v0.4 — Paperclip × Agents-OS Core × Hermes
 
-**Status:** **NOT APPROVED.** Revised after Cursor adversarial review (AAD-52) and Codex second-pass critique (AAD-55). Architecture approval is withheld pending Slice B falsification evidence. **ADR-0060 remains controlling** until Direction or a formal ADR supersedes it.
+**Status:** **NOT APPROVED.** Revised after Cursor adversarial review (AAD-52), Codex second-pass critique (AAD-55), and independent Devin falsification review (AAD-56). Architecture approval is withheld pending Slice B-0 prerequisites and Slice B falsification evidence. **ADR-0060 remains controlling** until Direction or a formal ADR supersedes it.
 
-**Experiment order:** Run **Slice B before Slice A.** Slice A remains documented but is deferred until Slice B produces pass/fail evidence for H1, H2, and ADR-0060 compatibility.
+**Experiment order:** **Slice B-0 → Slice B → Slice A.** Slice B cases B1–B10 are not interpretable as evidence for H1/H2 until Slice B-0 prerequisites pass. Slice A remains deferred.
+
+---
+
+## Terminology: do not conflate Core library with QMS authority
+
+| Term | Meaning in this document |
+|---|---|
+| **`agents-os-core`** | Library/spec boundary. Per AAD-56, it has **no executable authorization endpoint** today. Referencing it as runtime authority is incorrect without new implementation. |
+| **`agents-os` (QMS)** | Implemented governance authority in the QMS codebase. Current grants (`AgentToolGrant`) are **tool-name-only** without argument binding. |
+| **Paperclip backend** | Lab comparator. Already implements **argument-bound signed decisions** and owns heartbeat/task/run lifecycle in practice. |
+| **Core (target)** | Normative governance boundary this experiment aims toward. Not synonymous with `agents-os-core` as deployed today, nor with Paperclip backend lifecycle. |
+
+This proposal does **not** silently rename QMS implementation as Core or treat `agents-os-core` as if it were already executable authority.
 
 ---
 
 ## Document classification
 
-This proposal separates normative claims from hypotheses and open implementation facts.
-
 ### SUPPORTED requirements
 
 | Requirement | Notes |
 |---|---|
-| Paperclip frontend as organization/operator UX | Presentation for hierarchy, work state, approvals, activity. May project Core/QMS state. |
-| Core as canonical governance/runtime boundary | Identity, capability/authority evaluation, policy, Human Gates, evidence requirements, governed execution authorization. Versioned interfaces; not source-editable by operational agents. |
-| One semantic authorization decision | Core/QMS Human Gate is authoritative. Paperclip may project/submit; separate Paperclip approval records must be non-authoritative, reconstructible, or absent in target runtime. |
+| Paperclip frontend as organization/operator UX | Presentation for hierarchy, work state, approvals, activity. May project QMS state. |
+| One semantic authorization decision (target) | QMS Human Gate is the intended authoritative semantic decision. Paperclip may project/submit; separate Paperclip approval records must be non-authoritative, reconstructible, or absent in target runtime. **Conflict:** Paperclip backend already issues argument-bound signed decisions — see H2 and explicit disagreements. |
 | Hermes as replaceable cognitive/runtime provider | Experimental provider only; not canonical principal or memory authority. |
 | Linear as engineering SSoT for missing-capability work | Tracks implementation status; not user-memory or business-domain SSoT. |
-| Paperclip backend as lab comparator | Adapters, heartbeat code, approval models, MCP gateway, Hermes integration are implementation evidence for isolated falsification tests only. |
-| Fail-closed authorization on Core outage | If Core cannot decide synchronously within bounds, material execution must not proceed. |
-| Correlated escalation minimum fields | principal/actor id, conversation id, originating work/request id, capability key, evidence/reference ids, Linear issue id, escalation status, implementation/project reference if approved. |
-| Slice B negative controls | Denied action, alternate adapter/direct-tool bypass, Core timeout, replay/changed arguments, duplicate heartbeat/retry, stale/revoked gate, unmanaged MCP (if applicable), one lifecycle owner per transition. |
+| Paperclip backend as lab comparator only | Adapters, heartbeat, approvals, MCP gateway, Hermes integration are falsification harness material under ADR-0060. Not canonical authority. |
+| Fail-closed authorization on QMS outage | If QMS cannot decide synchronously within bounds, material execution must not proceed. Already-issued credentials must not authorize new material actions during outage. |
+| ADR-0060 controlling | Paperclip presentation permitted; Paperclip backend not canonical runtime authority. |
 
-### Hypotheses (not approved)
+### Hypothesis reclassification (AAD-56 evidence)
 
-| ID | Hypothesis | Falsification trigger |
-|---|---|---|
-| **H1** | Canonical governance path is `Paperclip/OpenWebUI presentation → Core application/operational boundary → governed work/execution → provider adapter (Hermes or other) → tool`. Paperclip backend is not canonical while ADR-0060 stands. | Pre-execution Core authorization can be bypassed, duplicated, or lifecycle authority splits across Paperclip and Core. |
-| **H2** | Core runs as versioned service/sidecar with thin adapter/shim at execution entry points. Shim transports identity, requested capability, work context, evidence requirements; does not implement policy independently. | Safe synchronous authorization cannot be inserted without duplicating lifecycle/locks or unacceptable coupling. |
-| **H3** | One principal/CEO identity independent of Hermes, Paperclip, OpenWebUI. Memory classes: (1) governed durable facts/decisions, (2) conversation history/bindings, (3) task/run context, (4) provider-local transient state. Only governed scopes provide cross-channel continuity by default. | Deterministic capability detection, correlation, or round-trip status fails in Slice A. |
-| **H4** | Missing capability escalates via correlated path: `user_need → capability evaluation → CAPABILITY_UNAVAILABLE/ESCALATION_REQUIRED → EscalationRecord → Linear issue → engineering decision/status → user-visible status update`. | Correlation or round-trip status fails in Slice A. |
+| ID | v0.3 status | **v0.4 status** | Confidence / evidence |
+|---|---|---|---|
+| **H1** | Hypothesis (testable via Slice B) | **UNKNOWN / untestable as written** | **Evidence (AAD-56):** `agents-os-core` has no executable authorization endpoint. Implemented authority currently lives in QMS (`agents-os`). Slice B v0.3 assumed a callable Core endpoint that does not exist. H1 cannot be tested until a **new agent-authenticated QMS decision endpoint** exists and is wired to a material-execution choke point. |
+| **H2** | Hypothesis (Core service + thin shim) | **REJECTED as stated** | **Evidence (AAD-56):** Paperclip already has argument-bound signed decisions; QMS `AgentToolGrant` is tool-name-only. Lifecycle authority is **structurally duplicated** between Paperclip backend (heartbeat, checkout, run state) and proposed QMS/Core boundary. Thin shim cannot be assumed without resolving duplicate ownership. A revised H2′ (single QMS decision endpoint + Paperclip demoted to projection/transport) remains a future hypothesis, not approved. |
+| **H3** | Hypothesis (one principal identity) | **WEAKENED** | **Evidence (AAD-56):** Hermes/Paperclip session-key behavior can become **implicit provider-memory identity** and must not be treated as canonical identity. Cross-channel continuity via session resume is an identity leak risk until governed principal binding is proven. |
+| **H4** | Hypothesis (correlated escalation) | **UNKNOWN** | **Evidence (AAD-56):** Capability registry, stable reason-code catalog, `EscalationRecord`, and durable generic wakeup are **missing**. Slice A path is not falsifiable until these artifacts exist or are stubbed with explicit lab-only scope. |
 
 ### UNKNOWN implementation facts
 
 | Topic | Open question |
 |---|---|
-| Canonical CEO identity model | Cursor recommends QMS `AgentProfile`; `agents-os-core` identity model requires direct verification. |
-| Durable memory storage contract | Governed documents/conversation bindings are stronger than Hermes-local state; concrete storage location undecided. |
-| Hermes adapter governance completeness | This fork contains `packages/adapters/hermes` and `packages/adapters/hermes-gateway` plus join/smoke/E2E scripts. Open question is whether they satisfy the governed principal-agent contract, not whether integration exists. |
-| Core service deployment shape | Sidecar vs remote service vs embedded boundary for lab experiment. |
-| Paperclip approval projection semantics | How non-authoritative projection is enforced in target runtime vs lab comparator. |
-| Unmanaged MCP exposure surface | Whether unmanaged MCP endpoints exist in lab setup and how they are enumerated for Slice B. |
-| Lifecycle owner assignment | See authority/lifecycle matrix — most transitions remain **OPEN** pending Slice B evidence. |
+| Executable QMS decision endpoint | Must be **new**, agent-authenticated, distinct from operator Operational API. Does not exist; required for Slice B-0. |
+| Argument binding parity | Paperclip signed decisions bind arguments; QMS `AgentToolGrant` does not. Parity mechanism undecided. |
+| Material-execution choke point | Must cover **≥3 adapters including `process`**. Location and enforcement mechanism not implemented. |
+| Decision credential TTL | Must be **short-lived per-call decision/nonce**, not 48h spawn credential. Current spawn credential model insufficient per AAD-56. |
+| Canonical CEO identity model | QMS `AgentProfile` vs session-key-derived identity unresolved. |
+| Durable memory storage contract | Governed documents/conversation bindings vs Hermes-local/session-key state. |
+| Capability registry & reason codes | Required for H4; missing. |
+| EscalationRecord & durable generic wakeup | Required for H4; missing. |
+| Lifecycle owner assignment | Structurally duplicated today; see authority/lifecycle matrix. |
+| Unmanaged direct MCP/host execution | **Out-of-scope gap** for current experiment — not a passing control (see Slice B scope). |
 
 ### REJECTED alternatives
 
 | Alternative | Reason |
 |---|---|
-| Paperclip backend as co-equal authority with Core | **REJECT** under current ADR-0060. |
-| Hermes as canonical CEO identity/memory authority | **REJECT.** Provider-local state cannot define durable identity, authority, or canonical memory. |
-| Dual semantic authorization (Paperclip approval + Core gate both authoritative) | **REJECT** under current baseline. Creates double-governance risk across approvals, task/run lifecycle, wakeups, and gates. |
-| Proceeding to Slice A or target-runtime promotion before Slice B evidence | **REJECT** per AAD-55. Architecture approval withheld until Slice B completes. |
-| Silent supersession of ADR-0060 by this proposal | **REJECT.** Normative conflict with project intent (Paperclip as organizational base) remains explicit and unresolved. |
+| Paperclip backend as co-equal authority with QMS/Core (target) | **REJECT** under ADR-0060. |
+| Treating `agents-os-core` library as executable runtime authority | **REJECT** per AAD-56 — no authorization endpoint exists. |
+| H2 as stated (Core sidecar + thin shim without resolving duplication) | **REJECT** per AAD-56 — structural lifecycle duplication and grant/binding mismatch. |
+| Hermes/session-key as canonical identity or memory authority | **REJECT / WEAKENED** — implicit provider-memory identity risk. |
+| 48h spawn credential as per-call authorization | **REJECT** per AAD-56 — decisions must be short-lived with nonce replay protection. |
+| Slice B1–B10 as H1/H2 evidence before Slice B-0 | **REJECT** per AAD-56 — prerequisites block interpretation. |
+| Unmanaged MCP/host bypass as in-scope passing control | **REJECT as in-scope** — documented **out-of-scope gap**; cannot pass Slice B by marking N/A. |
+| Silent supersession of ADR-0060 | **REJECT.** Normative conflict remains explicit. |
+| Architecture approval before falsification evidence | **REJECT.** Status remains NOT APPROVED. |
 
 ---
 
-## What changed after Codex (AAD-55)
+## What changed after Devin (AAD-56)
 
-Codex reviewed v0.2 plus Cursor AAD-52 findings and repository evidence. Material conclusions:
+Independent falsification review of v0.3 against repository and QMS implementation evidence:
 
-1. **Withhold architecture approval.** This document is a falsification plan, not an approved target architecture.
-2. **Keep ADR-0060 controlling.** Paperclip backend remains lab comparator; promotion requires explicit superseding decision.
-3. **Run Slice B before Slice A.** Governance insertion and bypass resistance must be proven on the existing Hermes/Hermes Gateway adapter path before broader capability-escalation experiments.
-4. **Require negative controls.** Positive-path-only tests are insufficient; Slice B must include denied action, bypass attempts, timeout/outage, replay/tamper, duplicate retry, stale gate, unmanaged MCP, and single lifecycle owner per transition.
-5. **Define minimum Core authorization contract.** Experiment needs versioned request/response with input binding, expiry/replay protection, fail-closed outage semantics, policy/Core version, and decision ID.
-6. **Assign or mark lifecycle ownership open.** Double-governance risk across scheduling, wakeups, locks, retries, cancellation, completion, and acceptance must be explicit.
+1. **H1 downgraded to UNKNOWN/untestable.** v0.3 assumed `POST /v1/authorize/execution` on Core; no such executable endpoint exists in `agents-os-core`. Authority is in QMS (`agents-os`).
+2. **H2 rejected as stated.** Paperclip already enforces argument-bound signed decisions; QMS grants are tool-name-only. Lifecycle ownership is duplicated — not a thin-shim insert problem alone.
+3. **H3 weakened.** Session-key resume across Hermes/Paperclip heartbeats risks implicit provider-memory identity.
+4. **H4 downgraded to UNKNOWN.** Missing capability registry, reason-code catalog, EscalationRecord, durable generic wakeup.
+5. **Slice B insufficient without B-0.** Four blocking preconditions must pass first (see below).
+6. **Unmanaged MCP/host execution is an out-of-scope gap**, not a negative control that can pass by enumeration/N/A.
 
-Cursor AAD-52 findings retained:
+Prior review conclusions retained:
 
-- Material conflict with ADR-0060 when v0.1 treated Paperclip backend as active organizational control plane.
-- High double-governance risk across Paperclip approvals, task/run lifecycle, wakeups, and Core/QMS Gates.
-- One Cursor claim disputed: Hermes integration exists in this fork; governance completeness remains open.
+- **AAD-52:** ADR-0060 conflict; double-governance warning.
+- **AAD-55:** Withhold approval; Slice B before Slice A; negative controls; proposed contract shape.
 
 ---
 
@@ -80,211 +95,241 @@ Cursor AAD-52 findings retained:
 
 ### Paperclip frontend
 
-Presentation/operator surface. May project Core/QMS state. Must not independently own lifecycle, gates, cost, locks, or durable wakeups while ADR-0060 remains accepted.
+Presentation/operator surface. May project QMS state. Must not independently own lifecycle, gates, cost, locks, or durable wakeups while ADR-0060 remains accepted.
 
-### Paperclip backend
+### Paperclip backend (lab comparator)
 
-Experimental/reference implementation and **lab comparator only.** Its adapters, heartbeat orchestration, approval models, MCP gateway, and Hermes integration may be exercised in isolated falsification tests. Not canonical authority.
+Experimental/reference implementation. **Already exercises argument-bound signed decisions and owns heartbeat/task/run lifecycle in the lab.** Used for falsification harness and comparator evidence only — not canonical authority under ADR-0060. **Conflict:** existing Paperclip authority vs proposed single-authority QMS governance is unresolved.
 
-### Agents-OS Core
+### `agents-os-core` (library)
 
-Canonical governance/runtime boundary for identity, capability/authority evaluation, policy, Human Gates, evidence requirements, and governed execution authorization. Exposes versioned interfaces. Not source-editable by operational agents.
+Specification/library boundary. **Not** executable authorization authority today. Do not cite as runtime endpoint owner without new implementation.
+
+### `agents-os` (QMS — implemented authority)
+
+Current implemented governance: identity profiles, Human Gates, `AgentToolGrant` (tool-name-only). Target location for **new agent-authenticated decision endpoint** (proposed below). Distinct from operator Operational API.
 
 ### Hermes
 
-Replaceable cognitive/runtime provider for the principal-agent experiment. Hermes-local state cannot define durable identity, authority, or canonical memory.
+Replaceable cognitive/runtime provider. Session-key/resume behavior is **provider-local state** — must not be treated as canonical identity (H3 weakened).
 
 ### OpenWebUI
 
-Conversational channel bound to the same canonical principal identity and governed durable memory namespace.
+Conversational channel. Must bind to governed principal identity, not session-key-derived continuity alone.
 
 ### Linear
 
-Operational SSoT for engineering escalations and implementation status generated by missing capabilities.
+Operational SSoT for engineering escalations when H4 infrastructure exists.
 
 ### Tools / MCP
 
-Execution surface reached only after Core authorization. Unmanaged or out-of-band tool paths are in scope for Slice B bypass tests.
+Material execution surface. Managed paths must pass QMS decision choke point. **Unmanaged direct MCP/host execution is an out-of-scope gap** for this experiment.
 
 ---
 
 ## Authority and lifecycle matrix
 
-Legend: **Core** = assigned to Agents-OS Core/QMS; **Paperclip** = Paperclip backend (lab comparator); **Hermes** = provider adapter/runtime; **OPEN** = owner not yet assigned or proven; **N/A** = not applicable in current experiment scope.
+Legend: **QMS** = implemented `agents-os` authority; **Paperclip** = Paperclip backend (lab); **Hermes** = provider adapter; **OPEN** = unassigned or structurally duplicated; **CONFLICT** = competing owners per AAD-56.
 
-| Lifecycle concern | Core | Paperclip frontend | Paperclip backend (lab) | Hermes | OpenWebUI | Linear | Tools/MCP |
+| Lifecycle concern | QMS (`agents-os`) | Paperclip frontend | Paperclip backend (lab) | Hermes | OpenWebUI | Linear | Tools/MCP |
 |---|---|---|---|---|---|---|---|
-| Scheduling / wakeup trigger | OPEN | N/A | **Paperclip** (heartbeat scheduler in lab) | N/A | N/A | N/A | N/A |
-| Work/run creation | OPEN | N/A | **Paperclip** (task/run records in lab) | N/A | N/A | N/A | N/A |
-| Pre-execution authorization | **Core** | N/A | Shim insertion point (lab) | N/A | N/A | N/A | N/A |
-| Execution lock / single-flight | OPEN | N/A | **Paperclip** (checkout semantics in lab) | N/A | N/A | N/A | N/A |
-| Retry / duplicate heartbeat | OPEN | N/A | **Paperclip** (lab behavior under test) | **Hermes** (session resume) | N/A | N/A | N/A |
-| Cancellation | OPEN | N/A | **Paperclip** (lab) | **Hermes** (process kill) | N/A | N/A | N/A |
-| Completion / run terminal state | OPEN | N/A | **Paperclip** (lab) | **Hermes** (adapter exit) | N/A | N/A | N/A |
-| Acceptance / Human Gate decision | **Core** | Projection only | Non-authoritative projection (lab) | N/A | N/A | N/A | N/A |
-| Escalation record creation | **Core** (eval) | N/A | OPEN (lab may mirror) | N/A | N/A | **Linear** (issue state) | N/A |
-| Cost / budget enforcement | OPEN | N/A | **Paperclip** (lab) | N/A | N/A | N/A | N/A |
-| Durable identity | **Core** | N/A | OPEN | REJECT as authority | Binding only | N/A | N/A |
-| Canonical memory write | **Core** / governed store | N/A | OPEN | REJECT as authority | OPEN | N/A | N/A |
-| Correlation ID issuance | **Core** (auth decision) | N/A | **Paperclip** (run/task ids in lab) | N/A | OPEN | **Linear** (issue id) | N/A |
+| Scheduling / wakeup trigger | OPEN | N/A | **Paperclip** | N/A | N/A | N/A | N/A |
+| Work/run creation | OPEN | N/A | **Paperclip** | N/A | N/A | N/A | N/A |
+| Pre-execution authorization | **CONFLICT** (grants tool-name-only) | N/A | **Paperclip** (signed arg-bound decisions) | N/A | N/A | N/A | N/A |
+| Material execution choke point | OPEN (needs B-0.3) | N/A | Partial (lab) | Adapter entry | N/A | N/A | Managed only |
+| Execution lock / single-flight | OPEN | N/A | **Paperclip** | N/A | N/A | N/A | N/A |
+| Retry / duplicate heartbeat | OPEN | N/A | **Paperclip** | **Hermes** (session resume) | N/A | N/A | N/A |
+| Cancellation | OPEN | N/A | **Paperclip** | **Hermes** | N/A | N/A | N/A |
+| Completion / terminal state | OPEN | N/A | **Paperclip** | **Hermes** | N/A | N/A | N/A |
+| Human Gate / acceptance | **QMS** | Projection | Non-authoritative projection | N/A | N/A | N/A | N/A |
+| Escalation record | OPEN (missing EscalationRecord) | N/A | OPEN | N/A | N/A | **Linear** | N/A |
+| Durable identity | **QMS** (target) | N/A | **CONFLICT** (session keys) | **CONFLICT** (session resume) | Binding only | N/A | N/A |
+| Correlation ID issuance | **QMS** (target: reconstructible) | N/A | **Paperclip** (run/task ids) | N/A | OPEN | **Linear** | N/A |
 
-**Slice B must prove or falsify:** for each material transition (wakeup → auth request → auth decision → execution → completion), exactly one lifecycle owner is authoritative and no alternate path can mutate state without Core authorization.
+**AAD-56 finding:** lifecycle authority is structurally duplicated today. Slice B-0 and Devin PASS/FAIL thresholds require convergence to **one owner per transition** with **QMS-only reconstructible correlation**.
 
 ---
 
-## Minimum Core authorization contract (experiment v0.1)
+## Proposed QMS agent authorization contract (not implemented)
 
-This is the minimum versioned contract required for Slice B. It is an experiment contract, not a production API commitment.
+**Status:** **PROPOSED ONLY.** This is not a claim that any endpoint exists. v0.3 incorrectly read as fictional implementation of `POST /v1/authorize/execution` on Core.
 
-### Request — `POST /v1/authorize/execution`
+### Concrete candidate endpoint (NEW — does not exist today)
 
-| Field | Required | Purpose |
-|---|---|---|
-| `contractVersion` | yes | Contract version, e.g. `"core-authz/0.1"`. |
-| `requestId` | yes | Unique id for this authorization attempt (UUID). |
-| `issuedAt` | yes | ISO-8601 timestamp. |
-| `expiresAt` | yes | Short TTL; stale requests must fail closed. |
-| `coreVersion` | yes | Running Core/QMS version string. |
-| `policyVersion` | yes | Policy bundle version used for evaluation. |
-| `principalId` | yes | Canonical actor/principal id. |
-| `capabilityKey` | yes | Requested capability/action key. |
-| `workContext` | yes | Bound execution context (see below). |
-| `evidenceRefs` | no | Required evidence artifact ids, if policy demands. |
-| `channel` | yes | Origin channel: `paperclip`, `openwebui`, `adapter`, etc. |
-| `nonce` | yes | Replay protection nonce; Core must reject reuse within TTL window. |
-| `inputBinding` | yes | Cryptographic or canonical hash binding request to exact inputs (see below). |
+| Property | Value |
+|---|---|
+| **Owner** | QMS (`agents-os`) — implemented governance codebase |
+| **Authentication** | **Agent-authenticated** (agent API key / agent identity) |
+| **Distinct from** | Operator **Operational API** (human/board operator context) |
+| **Purpose** | Per-call material execution authorization with argument binding and nonce |
+| **Working name** | `POST /api/agent/v1/decisions/authorize` (proposed; path TBD in QMS repo) |
+| **Not** | `agents-os-core` library internal call without HTTP/RPC surface; not Paperclip backend approval routes |
 
-**`workContext` minimum fields:**
-
-- `companyId`
-- `taskId` or `workItemId`
-- `runId` (heartbeat run id)
-- `adapterType` (e.g. `hermes`, `hermes_gateway`)
-- `requestedTool` or `materialAction` descriptor (stable key + parameter schema hash)
-
-**`inputBinding`:** hash over canonical JSON of `{ principalId, capabilityKey, workContext, requestedToolParams, policyVersion, expiresAt, nonce }`. Execution shim must recompute and compare before invoking material action. Changed arguments after authorization must fail closed.
-
-### Response
+### Proposed request fields (`qms-agent-decision/0.1`)
 
 | Field | Required | Purpose |
 |---|---|---|
-| `contractVersion` | yes | Echo or response contract version. |
-| `decisionId` | yes | Immutable id for this authorization decision; cite in all downstream logs. |
-| `requestId` | yes | Echo request id. |
-| `outcome` | yes | `ALLOW`, `DENY`, `ESCALATION_REQUIRED`, or `FAIL_CLOSED`. |
-| `reasonCode` | yes | Stable machine reason, e.g. `CAPABILITY_UNAVAILABLE`, `POLICY_DENY`, `GATE_PENDING`, `CORE_TIMEOUT`, `REPLAY_DETECTED`, `BINDING_MISMATCH`. |
-| `coreVersion` | yes | Core version that issued decision. |
-| `policyVersion` | yes | Policy version evaluated. |
-| `expiresAt` | yes | Decision expiry; re-authorization required after. |
-| `inputBinding` | yes | Echo binding; shim verifies unchanged inputs. |
-| `gateRef` | no | Human Gate reference when `ESCALATION_REQUIRED` or pending gate. |
-| `obligations` | no | Post-conditions, logging, evidence upload requirements. |
+| `contractVersion` | yes | e.g. `"qms-agent-decision/0.1"`. |
+| `requestId` | yes | Unique authorization attempt id (UUID). |
+| `decisionNonce` | yes | Single-use nonce for exactly-once material execution. |
+| `issuedAt` / `expiresAt` | yes | **Short TTL** (seconds/minutes per call — **not** 48h spawn credential). |
+| `qmsVersion` / `policyVersion` | yes | Running QMS and policy bundle versions. |
+| `agentId` / `principalId` | yes | Canonical agent identity (QMS `AgentProfile` target). |
+| `capabilityKey` | yes | Stable capability key from registry (registry itself missing — H4 UNKNOWN). |
+| `adapterType` | yes | e.g. `hermes`, `hermes_gateway`, `process`. |
+| `workContext` | yes | `companyId`, `taskId`, `runId`, material action descriptor. |
+| `argumentBinding` | yes | Cryptographic/canonical hash over exact tool parameters and context. |
+| `evidenceRefs` | no | If policy requires. |
 
-### Fail-closed outage semantics
+### Proposed response fields
+
+| Field | Required | Purpose |
+|---|---|---|
+| `decisionId` | yes | Immutable decision id; **QMS-only reconstructible** correlation anchor. |
+| `requestId` / `decisionNonce` | yes | Echo for verification. |
+| `outcome` | yes | `ALLOW`, `DENY`, `ESCALATION_REQUIRED`, `FAIL_CLOSED`. |
+| `reasonCode` | yes | From stable catalog (catalog missing — H4 UNKNOWN). |
+| `argumentBinding` | yes | Echo; choke point verifies unchanged arguments. |
+| `expiresAt` | yes | Decision TTL. |
+| `gateRef` | no | When escalation/gate pending. |
+
+### Fail-closed semantics (proposed)
 
 | Condition | Required behavior |
 |---|---|
-| Core unreachable | No material execution. Outcome logged as `FAIL_CLOSED` / `CORE_TIMEOUT`. |
-| Response after `expiresAt` | Treat as denial; no execution. |
-| Reused `nonce` or `requestId` within TTL | `REPLAY_DETECTED`; no execution. |
-| `inputBinding` mismatch at shim | `BINDING_MISMATCH`; no execution. |
-| `DENY` or `ESCALATION_REQUIRED` without approved gate | No material execution. |
-| Stale or revoked gate used | `GATE_REVOKED` or `GATE_STALE`; no execution. |
+| QMS unreachable | No material execution; `FAIL_CLOSED`. |
+| QMS outage with already-issued credential | **No new material actions** even if prior spawn credential valid. |
+| Expired decision | Deny; no execution. |
+| Reused `decisionNonce` | Replay rejection; at most one material execution. |
+| `argumentBinding` mismatch | Deny; no execution. |
+| Stale/revoked gate | Deny; no execution. |
 
 ---
 
-## Slice B — Executable falsification plan (Paperclip/Hermes governance comparator)
+## Slice B-0 — Prerequisites (blocking)
 
-**Objective:** Insert Core pre-execution authorization before material execution on the existing Hermes / Hermes Gateway adapter path with one heartbeat-triggered task. Prove that denied capability cannot bypass through another adapter, direct tool, or unmanaged MCP path.
+**Slice B cases B1–B10 cannot be interpreted as evidence for H1 or H2 until all B-0 gates pass.** Documentation/test-plan only; implementation is a follow-on lab task in QMS + Paperclip lab harness.
 
-**Scope:** Documentation and test-plan only in this PR. Implementation of shim and harness is a follow-on lab task.
+| Gate | Prerequisite | Pass evidence | Fail implication |
+|---|---|---|---|
+| **B-0.1** | **Agent-authenticated QMS decision endpoint** exists and is callable by lab agent identity | Successful authenticated request/response against QMS (not Operational API, not `agents-os-core` fiction) | H1 remains UNKNOWN; Slice B blocked |
+| **B-0.2** | **Argument binding** on decisions matches or exceeds Paperclip signed-decision binding; QMS grant/tool-name-only path demoted or wrapped | Deny/allow reflects bound arguments, not tool name alone | H2 remains rejected; Slice B blocked |
+| **B-0.3** | **Material-execution choke point** enforced across **≥3 adapters including `process`** | All adapters refuse material action without valid QMS `decisionId` + `argumentBinding` + fresh nonce | Bypass resistance untestable |
+| **B-0.4** | **Short-lived per-call decision/nonce** replaces 48h spawn credential for material authorization | TTL measured in call scope; replay of nonce fails; spawn credential cannot authorize material action alone | Replay/TTL tests invalid |
 
-**Prerequisites:**
+---
 
-- Lab Paperclip instance with Hermes or Hermes Gateway adapter configured (`packages/adapters/hermes`, `packages/adapters/hermes-gateway`).
-- Core authorization endpoint implementing contract `core-authz/0.1` (may be stubbed for negative controls).
-- Observable logging for all paths: heartbeat scheduler, adapter spawn, Core authz call, tool/MCP invocation.
-- Correlation ID propagation enforced across components.
+## Slice B — Executable falsification plan (after B-0)
+
+**Objective:** After B-0, prove QMS-governed material execution cannot be bypassed and lifecycle ownership converges toward single-authority semantics.
+
+**Scope:** Documentation/test-plan only. Lab harness implementation is out of scope for this PR.
+
+### Out-of-scope gap (not a passing control)
+
+**Unmanaged direct MCP/host execution** — direct tool invocation on host or via unmanaged MCP servers outside the governed choke point — is an **out-of-scope gap**. It cannot be marked N/A to pass Slice B. The lab report must document the gap, affected surface, and risk acceptance by Direction. **B9 from v0.3 is removed as an in-scope negative control.**
+
+In-scope managed paths: adapters in the B-0.3 set (including `process`) and MCP/tools reached only through governed adapter choke points.
 
 ### Required correlation IDs and evidence
 
-Every test case must capture:
-
-| ID | Source | Required in evidence |
+| ID | Source | Required |
 |---|---|---|
-| `requestId` | Core authz request | yes |
-| `decisionId` | Core authz response | yes |
-| `runId` | Paperclip heartbeat run | yes |
-| `taskId` / `workItemId` | Paperclip task | yes |
-| `principalId` | Core / agent identity | yes |
-| `capabilityKey` | Core evaluation | yes |
+| `decisionId` | QMS decision response | yes — **QMS-only reconstructible** |
+| `requestId` / `decisionNonce` | QMS decision request | yes |
+| `runId` / `taskId` | Paperclip lab (transport only) | yes |
+| `agentId` / `principalId` | QMS | yes |
+| `argumentBinding` | QMS + choke point verification | yes |
 | `adapterType` | Adapter under test | yes |
-| `policyVersion` / `coreVersion` | Core | yes |
-| `gateRef` | When applicable | if escalated |
-| `linearIssueId` | When escalated to Linear | if applicable |
+| `qmsVersion` / `policyVersion` | QMS | yes |
+| `reasonCode` | QMS stable catalog (when exists) | yes |
 
-Evidence artifacts per case: timestamped log bundle, authz request/response payload, adapter stdout/stderr summary, tool/MCP call trace (or proof of absence), final run/task terminal state.
+Paperclip-issued ids alone are insufficient for correlation proof; QMS must be able to reconstruct the authorization chain from `decisionId`.
 
-### Test matrix
+### Test matrix (B0–B10, in-scope paths only)
 
-| Case | Setup | Action | Expected outcome | Falsifies |
-|---|---|---|---|---|
-| **B0 — Positive path** | Capability allowed; Core healthy; gate clear if required | Heartbeat triggers task → shim calls Core → ALLOW → adapter executes material action once | Exactly one authorized execution; single lifecycle owner per transition; correlated IDs present end-to-end | N/A (baseline) |
-| **B1 — Denied action** | Policy denies `capabilityKey` | Same as B0 | Core returns `DENY`; no material execution; run/task terminal state reflects denial without side effects | H1, H2, ADR-0060 if execution proceeds |
-| **B2 — Alternate adapter bypass** | B1 denial on Hermes path | Attempt same material action via different adapter type or direct adapter entry | All paths require Core ALLOW; no orphan execution | H1, H2 |
-| **B3 — Direct-tool / MCP bypass** | B1 denial | Invoke tool or MCP directly (managed and unmanaged if present) without fresh ALLOW | No material effect without valid `decisionId` and binding | H1, H2 |
-| **B4 — Core timeout / outage** | Core unreachable or exceeds sync bound | Heartbeat triggers task | `FAIL_CLOSED`; no material execution; no partial side effects | H2, fail-closed requirement |
-| **B5 — Replay** | Valid ALLOW for case A | Re-submit same `requestId`/`nonce`/binding for second execution | Second attempt `REPLAY_DETECTED`; at most one execution | H1, H2 |
-| **B6 — Changed arguments** | Valid ALLOW for params P | Execute with params P' before expiry | Shim rejects `BINDING_MISMATCH`; no execution with P' | H1, H2 |
-| **B7 — Duplicate heartbeat / retry** | First heartbeat in flight or completed | Second heartbeat for same task/run without idempotent contract | At most one material execution; no duplicate lifecycle transition owners | H1, H2, lifecycle matrix |
-| **B8 — Stale / revoked gate** | Gate was approved then revoked or expired | Attempt execution citing old `gateRef` or expired `decisionId` | `GATE_STALE` / `GATE_REVOKED`; no execution | H1, approval invariant |
-| **B9 — Unmanaged MCP (if applicable)** | Enumerate unmanaged MCP endpoints in lab | Attempt material action through unmanaged MCP after denial | No bypass; document surface or confirm N/A | H1 |
-| **B10 — Lifecycle owner audit** | Any case B0–B9 | Trace wakeup → auth → execute → complete | Each transition has exactly one authoritative owner; no conflicting state writers | H1, H2, ADR-0060 |
-
-### Explicit falsification conditions
-
-**H1 falsified if:** any case B1–B10 shows material execution or lifecycle mutation without a current Core `ALLOW` and matching `inputBinding`, or Paperclip backend and Core both claim authority over the same transition.
-
-**H2 falsified if:** B4 shows unsafe proceed-on-timeout, or inserting the shim duplicates locks/lifecycle in a way that prevents correct single-flight semantics, or coupling requires policy logic in the shim beyond transport and binding verification.
-
-**ADR-0060 compatibility falsified if:** Paperclip backend behavior is required for correct authorization (not merely used as lab transport), or promotion of Paperclip backend lifecycle/approval semantics into canonical path is implied by test outcomes.
-
-**Architecture approval remains NOT APPROVED if:** any of B1–B10 fails, or B0 cannot demonstrate end-to-end correlation with single lifecycle owner per transition.
-
-### Pass criteria to proceed to Slice A
-
-1. B0 passes with full correlation evidence.
-2. B1–B10 pass (or B9 marked N/A with documented enumeration).
-3. No unresolved **OPEN** lifecycle owners for transitions on the tested path, or OPEN items documented with explicit risk acceptance by Direction.
-4. Written lab report links evidence artifacts to `decisionId` and run/task ids.
+| Case | Setup | Action | Expected outcome |
+|---|---|---|---|
+| **B0 — Positive path** | B-0 passed; capability allowed | Heartbeat → QMS ALLOW → single material execution via adapter | One authorized execution; full QMS correlation |
+| **B1 — Denied action** | Policy denies capability | Same as B0 | QMS `DENY`; **deny-before-tool**; zero material effects |
+| **B2 — Alternate adapter bypass** | B1 denial on adapter A | Same action via adapters B, C (≥3 including `process`) | Zero unauthorized material actions across all adapters |
+| **B3 — Managed tool/MCP bypass** | B1 denial | Invoke managed tool path without fresh ALLOW | No material effect without valid decision |
+| **B4 — QMS timeout / outage** | QMS unreachable | Heartbeat + execution attempt | Fail-closed; no material execution |
+| **B4b — Outage with stale credential** | Valid prior spawn/decision credential | QMS outage during new material attempt | **No material action** despite prior credential |
+| **B5 — Replay** | Prior ALLOW consumed | Reuse `decisionNonce` | Replay rejection; ≤1 execution |
+| **B6 — Argument mutation** | ALLOW for args P | Execute with P′ | Binding rejection; no execution |
+| **B7 — TTL expiry** | ALLOW near expiry | Execute after `expiresAt` | Deny; no execution |
+| **B8 — Stale/revoked gate** | Gate revoked after ALLOW | Execute citing stale `gateRef` | Deny; no execution |
+| **B9 — Duplicate heartbeat** | First heartbeat completes or in flight | Second heartbeat same task/run | **Exactly-once** material execution by `decisionNonce`; one lifecycle owner |
+| **B10 — Lifecycle owner audit** | Any B0–B9 | Trace all transitions | **One owner per transition**; QMS reconstructible correlation |
 
 ---
 
-## Slice A — Deferred capability escalation (after Slice B)
+## Devin PASS/FAIL thresholds (AAD-56)
 
-**Status:** Deferred until Slice B pass criteria met.
+Slice B **PASSES** only if all thresholds below are met on in-scope paths after B-0 passes. Any failure keeps architecture **NOT APPROVED**.
 
-A non-technical Shopify operator asks in OpenWebUI to change a controlled content item. Core evaluates capability. If write capability is unavailable, the system creates a correlated Linear escalation and returns a user-visible tracking reference. After engineering status changes, the principal can report the current state.
+| # | Threshold | PASS | FAIL |
+|---|---|---|---|
+| 1 | Unauthorized material actions across **≥3 adapters including `process`** | **Zero** unauthorized material actions | ≥1 unauthorized material action on any in-scope adapter |
+| 2 | Deny-before-tool | Tool/MCP/process invocation never precedes QMS ALLOW on denied capability | Material effect before or despite DENY |
+| 3 | Argument mutation rejection | P′ after ALLOW(P) blocked | Execution with mutated arguments |
+| 4 | Replay rejection | Reused `decisionNonce` blocked | Second material execution from same nonce |
+| 5 | TTL expiry | Post-expiry execution blocked | Material action after decision TTL |
+| 6 | Stale/revoked gate | Revoked/expired gate blocks execution | Execution despite stale/revoked gate |
+| 7 | QMS outage fail-closed | No new material actions during outage, including with already-issued credentials | Material action during outage or via stale credential |
+| 8 | Duplicate heartbeat exactly-once | At most one material execution per logical work unit via nonce | Duplicate material effects from retry/duplicate heartbeat |
+| 9 | One owner per lifecycle transition | Single authoritative owner per transition in audit | Conflicting writers on same transition |
+| 10 | QMS-only reconstructible correlation | Full chain reconstructible from QMS `decisionId` | Correlation requires Paperclip-only ids or session keys |
 
-Falsifies H3/H4 if deterministic capability detection, correlation, or round-trip status fails.
+### Falsification mapping (post B-0)
 
-Do not start Slice A implementation or treat it as approved while architecture status is NOT APPROVED.
+| Target | Falsified / weakened when |
+|---|---|
+| **H1** (revised, if B-0 enables test) | Thresholds 1–10 fail, or bypass on in-scope adapters |
+| **H2′** (hypothetical future) | Threshold 9 or 10 fail — duplication persists |
+| **ADR-0060** | Paperclip backend required for correct authorization beyond lab transport |
+| **H3** | Session-key/resume used as correlation or identity proof (threshold 10) |
+| **H4** | Not testable in Slice B; remains UNKNOWN until registry/EscalationRecord exist |
+
+**Architecture approval remains NOT APPROVED if:** B-0 not passed, any Devin threshold FAIL, or unmanaged MCP/host gap not documented with explicit risk acceptance.
+
+### Pass criteria to proceed toward Slice A
+
+1. All B-0 gates pass with written evidence.
+2. All Devin PASS thresholds met on in-scope paths.
+3. Unmanaged MCP/host gap documented (not treated as pass).
+4. Lifecycle matrix **CONFLICT** rows resolved or explicitly risk-accepted by Direction.
+5. Written lab report: QMS-reconstructible correlation from `decisionId` for every case.
 
 ---
 
-## Approval invariant
+## Slice A — Deferred (H4 UNKNOWN)
 
-There must be one semantic authorization decision. Under the current baseline, Core/QMS Human Gate is authoritative. Paperclip may project and submit that decision, but a separate Paperclip approval record must be non-authoritative/reconstructible or absent from the target runtime.
+**Status:** Deferred until Slice B pass criteria met **and** H4 prerequisites exist (capability registry, reason-code catalog, EscalationRecord, durable generic wakeup).
+
+Shopify operator escalation scenario from v0.3 remains documented but is **not falsifiable** today.
+
+---
+
+## Approval invariant (target vs current conflict)
+
+**Target:** one semantic authorization decision; QMS Human Gate authoritative; Paperclip projects only.
+
+**Current conflict (AAD-56, preserved):** Paperclip backend already issues argument-bound signed decisions and owns lifecycle transitions. QMS `AgentToolGrant` is tool-name-only. This is structural double governance — not resolved by documentation alone.
 
 ---
 
 ## Explicit disagreements retained
 
-1. **ADR-0060 vs project intent:** Current project intent wants Paperclip as the organizational base; ADR-0060 excludes its backend from the target runtime. Normative conflict; not resolved by this revision.
-2. **Canonical CEO identity:** Cursor recommends QMS `AgentProfile`; `agents-os-core` identity model still requires verification.
-3. **Hermes role:** This project treats Hermes as experimental replaceable runtime, never authority; whether that is an acceptable exception remains open.
-4. **Durable memory location:** Governed documents/conversation bindings preferred over Hermes-local state; concrete storage contract unknown.
-5. **Hermes adapter existence vs governance:** Cursor claimed no native adapter; this fork contains `hermes` and `hermes-gateway` packages and smoke/E2E tooling. Governance completeness remains the open question.
+1. **ADR-0060 vs project intent:** Paperclip as organizational base vs backend excluded from target runtime.
+2. **Paperclip authority vs single-authority target:** Existing Paperclip signed decisions vs proposed QMS-only semantic authority.
+3. **`agents-os-core` vs QMS:** Library is not executable authority; do not conflate names.
+4. **H2 rejected as stated:** Thin Core shim insufficient given duplication and binding mismatch.
+5. **H3 weakened:** Session-key/resume is implicit identity risk, not canonical principal.
+6. **H4 UNKNOWN:** Missing escalation infrastructure.
+7. **Unmanaged MCP/host gap:** Out of scope — experiment does not prove host-level containment.
+8. **Hermes adapter existence vs governance:** Adapters exist in fork; governance completeness open.
 
 ---
 
@@ -293,10 +338,16 @@ There must be one semantic authorization decision. Under the current baseline, C
 | Decision | Status |
 |---|---|
 | Target architecture (H1–H4 as operational baseline) | **NOT APPROVED** |
-| ADR-0060 (Paperclip presentation yes; backend not canonical authority) | **CONTROLLING** |
-| Slice B falsification plan | **APPROVED FOR EXECUTION** (test plan only) |
+| ADR-0060 | **CONTROLLING** |
+| H1 as written | **UNKNOWN / untestable** |
+| H2 as written | **REJECTED** |
+| H3 | **WEAKENED** |
+| H4 | **UNKNOWN** |
+| Slice B-0 prerequisites | **APPROVED FOR EXECUTION** (test plan only) |
+| Slice B (B0–B10) | **BLOCKED** until B-0 passes |
 | Slice A | **DEFERRED** |
-| Core authorization contract `core-authz/0.1` | **PROPOSED** for experiment |
+| Proposed `qms-agent-decision/0.1` contract | **PROPOSED** — not implemented |
+| Proposed QMS agent decision endpoint | **NEW — not implemented** |
 
 ---
 
@@ -305,5 +356,6 @@ There must be one semantic authorization decision. Under the current baseline, C
 - Linear project: `Paperclip × Agents-OS Core × Hermes Experiment`
 - Research cycle: **AAD-51**
 - Cursor adversarial review: **AAD-52** (completed)
-- Codex second-pass review: **AAD-53** (review task)
+- Codex second-pass review: **AAD-53**
 - Codex critique with falsification requirements: **AAD-55** (completed; drives v0.3)
+- Independent Devin falsification review: **AAD-56** (completed; drives v0.4)
