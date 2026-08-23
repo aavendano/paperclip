@@ -333,21 +333,51 @@ Shopify operator escalation scenario from v0.3 remains documented but is **not f
 
 ---
 
+## AAD-57 — Slice B-0 engineering (in progress)
+
+**Status:** Patch bundle prepared; **awaiting apply + CI in `aavendano/agents-os`.** Architecture remains **NOT APPROVED.**
+
+| Artifact | Location |
+|---|---|
+| Implementation plan | `doc/agents-os/AAD-57-SLICE-B0-IMPLEMENTATION-PLAN.md` |
+| Patch bundle (copy into agents-os) | `doc/agents-os/aad-57-slice-b0/` |
+| QMS tracking issue | https://github.com/aavendano/agents-os/issues/257 |
+
+**Delivered in patch bundle (not yet verified in QMS CI):**
+
+1. `POST /api/agent/v1/decisions/authorize` — agent-authenticated, distinct from `/api/operational/v1/*`
+2. Argument-bound short-TTL decisions with `decision_id`, `decision_nonce`, replay/TTL enforcement
+3. `processes/material_execution.py` choke point for adapter_type `process`
+4. Tests for allow, deny/no Authority, binding mismatch, expiry, replay, QMS outage fail-closed
+
+**Cloud Agent blocker:** private `agents-os` repo not cloneable/writable from Paperclip agent token (403 on contents/git refs). Human or agents-os Cloud Agent must apply patch and open implementation PR.
+
+**B-0 gate status (pending QMS merge):**
+
+| Gate | Status |
+|---|---|
+| B-0.1 Agent-authenticated endpoint | **PATCH READY** |
+| B-0.2 Argument binding | **PATCH READY** |
+| B-0.3 Process choke point (1 of ≥3 adapters) | **PATCH READY** |
+| B-0.4 Short-lived nonce/TTL | **PATCH READY** |
+
+---
+
 ## Architecture decision status
 
 | Decision | Status |
 |---|---|
 | Target architecture (H1–H4 as operational baseline) | **NOT APPROVED** |
 | ADR-0060 | **CONTROLLING** |
-| H1 as written | **UNKNOWN / untestable** |
+| H1 as written | **UNKNOWN / untestable** (until B-0 CI evidence) |
 | H2 as written | **REJECTED** |
 | H3 | **WEAKENED** |
 | H4 | **UNKNOWN** |
-| Slice B-0 prerequisites | **APPROVED FOR EXECUTION** (test plan only) |
+| Slice B-0 prerequisites | **IN PROGRESS** (AAD-57 patch bundle) |
 | Slice B (B0–B10) | **BLOCKED** until B-0 passes |
 | Slice A | **DEFERRED** |
-| Proposed `qms-agent-decision/0.1` contract | **PROPOSED** — not implemented |
-| Proposed QMS agent decision endpoint | **NEW — not implemented** |
+| Proposed `qms-agent-decision/0.1` contract | **IMPLEMENTED IN PATCH** (pending QMS CI) |
+| Proposed QMS agent decision endpoint | **IMPLEMENTED IN PATCH** (pending QMS CI) |
 
 ---
 
@@ -359,3 +389,4 @@ Shopify operator escalation scenario from v0.3 remains documented but is **not f
 - Codex second-pass review: **AAD-53**
 - Codex critique with falsification requirements: **AAD-55** (completed; drives v0.3)
 - Independent Devin falsification review: **AAD-56** (completed; drives v0.4)
+- Slice B-0 engineering task: **AAD-57** (in progress — patch bundle in Paperclip PR)
