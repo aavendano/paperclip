@@ -333,33 +333,42 @@ Shopify operator escalation scenario from v0.3 remains documented but is **not f
 
 ---
 
-## AAD-57 — Slice B-0 engineering (in progress)
+## AAD-57 — Slice B-0 engineering (rework in progress)
 
-**Status:** Patch bundle prepared; **awaiting apply + CI in `aavendano/agents-os`.** Architecture remains **NOT APPROVED.**
+**Status:** agents-os PR #263 mint/consume **verified**; spawn/MCP gaps + docs **addressed in Paperclip rework bundle.** Architecture remains **NOT APPROVED.**
 
 | Artifact | Location |
 |---|---|
 | Implementation plan | `doc/agents-os/AAD-57-SLICE-B0-IMPLEMENTATION-PLAN.md` |
-| Patch bundle (copy into agents-os) | `doc/agents-os/aad-57-slice-b0/` |
+| Original patch bundle (superseded) | `doc/agents-os/aad-57-slice-b0/` |
+| **Rework patch bundle** | `doc/agents-os/aad-57-slice-b0-rework/` |
+| Unmanaged path inventory | `doc/agents-os/AAD-57-UNMANAGED-PATH-INVENTORY.md` |
+| Lifecycle demotion matrix | `doc/agents-os/AAD-57-LIFECYCLE-DEMOTION-MATRIX.md` |
+| Slice B-1 harness plan | `doc/agents-os/AAD-57-SLICE-B1-HARNESS-PLAN.md` |
+| QMS implementation PR | https://github.com/aavendano/agents-os/pull/263 |
 | QMS tracking issue | https://github.com/aavendano/agents-os/issues/257 |
 
-**Delivered in patch bundle (not yet verified in QMS CI):**
+**Verified in agents-os PR #263 (head `93caa0c`):**
 
-1. `POST /api/agent/v1/decisions/authorize` — agent-authenticated, distinct from `/api/operational/v1/*`
-2. Argument-bound short-TTL decisions with `decision_id`, `decision_nonce`, replay/TTL enforcement
-3. `processes/material_execution.py` choke point for adapter_type `process`
-4. Tests for allow, deny/no Authority, binding mismatch, expiry, replay, QMS outage fail-closed
+1. `POST /api/agent/action-decisions/` — agent-authenticated, distinct from `/api/operational/v1/*`
+2. Argument-bound short-TTL decisions with `decision_id`, nonce, replay/TTL enforcement (44+ tests)
+3. Workflow provider choke points (`dispatch.py`, verifier, BPMN executor)
+4. Capability ≠ Authority (`AgentToolGrant` + `AgentMaterialAuthorityGrant`)
 
-**Cloud Agent blocker:** private `agents-os` repo not cloneable/writable from Paperclip agent token (403 on contents/git refs). Human or agents-os Cloud Agent must apply patch and open implementation PR.
+**Open rework (review REWORK_REQUIRED, 2026-08-24):**
 
-**B-0 gate status (pending QMS merge):**
+1. `work_orders/services.py` — `subprocess.Popen` bypasses decision consume
+2. MCP tool execution — capability-only; needs `integrations/mcp/dispatch.py`
+3. Docs delivered in Paperclip: unmanaged inventory, demotion matrix, B-1 harness
+
+**B-0 gate status:**
 
 | Gate | Status |
 |---|---|
-| B-0.1 Agent-authenticated endpoint | **PATCH READY** |
-| B-0.2 Argument binding | **PATCH READY** |
-| B-0.3 Process choke point (1 of ≥3 adapters) | **PATCH READY** |
-| B-0.4 Short-lived nonce/TTL | **PATCH READY** |
+| B-0.1 Agent-authenticated endpoint | **PASS** (PR #263) |
+| B-0.2 Argument binding | **PASS** (PR #263) |
+| B-0.3 ≥3 adapters incl. `process` | **REWORK** — apply `aad-57-slice-b0-rework/` |
+| B-0.4 Short-lived nonce/TTL | **PASS** (PR #263) |
 
 ---
 
@@ -373,11 +382,14 @@ Shopify operator escalation scenario from v0.3 remains documented but is **not f
 | H2 as written | **REJECTED** |
 | H3 | **WEAKENED** |
 | H4 | **UNKNOWN** |
-| Slice B-0 prerequisites | **IN PROGRESS** (AAD-57 patch bundle) |
+| Slice B-0 prerequisites | **REWORK** (PR #263 + spawn/MCP patches) |
 | Slice B (B0–B10) | **BLOCKED** until B-0 passes |
 | Slice A | **DEFERRED** |
-| Proposed `qms-agent-decision/0.1` contract | **IMPLEMENTED IN PATCH** (pending QMS CI) |
-| Proposed QMS agent decision endpoint | **IMPLEMENTED IN PATCH** (pending QMS CI) |
+| Proposed agent decision contract | **IMPLEMENTED** (PR #263; pending B-0.3 rework) |
+| Proposed QMS agent decision endpoint | **IMPLEMENTED** (PR #263) |
+| Unmanaged path inventory | **DOCUMENTED** (`AAD-57-UNMANAGED-PATH-INVENTORY.md`) |
+| Lifecycle demotion matrix | **DOCUMENTED** (`AAD-57-LIFECYCLE-DEMOTION-MATRIX.md`) |
+| Slice B-1 harness plan | **DOCUMENTED** (`AAD-57-SLICE-B1-HARNESS-PLAN.md`) |
 
 ---
 

@@ -1,110 +1,97 @@
 # AAD-57 — Slice B-0 implementation plan
 
-**Status:** Patch bundle prepared in Paperclip PR; **not yet applied** in `aavendano/agents-os` from this Cloud Agent context.
+**Status:** PR #263 mint/consume **PASS**; rework bundle addresses open gaps. **Architecture NOT APPROVED.**
 
 **Architecture remains NOT APPROVED.** ADR-0060 remains controlling. Paperclip backend remains lab comparator.
 
-## Blocker encountered in Cloud Agent
+## Review verdict (2026-08-24)
 
-The Cloud Agent token can create GitHub issues on `aavendano/agents-os` but **cannot clone, read contents, create branches, or open PRs** (403 on git/refs and contents APIs). Implementation is therefore delivered as an **exact patch bundle** in this repository:
+Independent review of agents-os PR #263 (`cursor/aad-57-slice-b0-c417`, head `93caa0c`):
+
+| Area | Verdict |
+|---|---|
+| Mint/consume core (endpoint, argument hash, TTL, nonce, row lock) | **PASS** — 44+9 tests |
+| Workflow provider choke points | **PASS** |
+| `work_orders/services.py` subprocess spawn | **FAIL** — Popen bypasses decision |
+| MCP tool execution | **FAIL** — capability-only at execution |
+| Unmanaged path inventory | **MISSING** → delivered in this PR |
+| Lifecycle demotion matrix | **MISSING** → delivered in this PR |
+| Slice B-1 harness/thresholds | **MISSING** → delivered in this PR |
+
+## Deliverables map
+
+| Deliverable | Location | Status |
+|---|---|---|
+| Callable agent-authenticated endpoint | agents-os PR #263 | **DONE** |
+| Argument binding + replay/TTL | agents-os PR #263 | **DONE** |
+| Workflow adapter choke points | agents-os PR #263 | **DONE** |
+| Process spawn choke point | `aad-57-slice-b0-rework/` | **PATCH READY** |
+| MCP authority at execution | `aad-57-slice-b0-rework/` | **PATCH READY** |
+| Unmanaged path inventory | `AAD-57-UNMANAGED-PATH-INVENTORY.md` | **DONE** |
+| Demotion matrix | `AAD-57-LIFECYCLE-DEMOTION-MATRIX.md` | **DONE** |
+| B-1 harness plan | `AAD-57-SLICE-B1-HARNESS-PLAN.md` | **DONE** |
+
+## Original patch bundle (superseded for implementation)
+
+The initial bundle at `doc/agents-os/aad-57-slice-b0/` predates PR #263. **Use PR #263 as the implementation baseline**, then apply rework:
 
 ```text
-doc/agents-os/aad-57-slice-b0/
+doc/agents-os/aad-57-slice-b0-rework/
 ```
 
-Tracking issue opened in QMS repo: **https://github.com/aavendano/agents-os/issues/257**
+Tracking: https://github.com/aavendano/agents-os/issues/257, PR https://github.com/aavendano/agents-os/pull/263
 
 ## Objective (Linear AAD-57)
 
-Implement minimum callable, **agent-authenticated** QMS per-action authorization decision endpoint and wire **one** material execution path (`process`) through it.
+1. Callable agent-authenticated QMS decision endpoint — **PR #263**
+2. Argument binding matching/exceeding Paperclip — **PR #263**
+3. Material choke points across ≥3 adapters including `process` — **rework required**
+4. Short-lived per-action decision semantics — **PR #263**
+5. Revocation/outage semantics — **PR #263** (+ demotion matrix doc)
+6. Lifecycle demotion matrix — **this PR**
+7. Slice B-1 harness with strict PASS/FAIL thresholds — **this PR**
 
-Satisfies Slice B-0 gates **B-0.1**, **B-0.2** (argument binding), **B-0.3** (first of ≥3 adapters), **B-0.4** (short-lived nonce/TTL).
-
-## What the patch implements
-
-| Component | Path in agents-os | Purpose |
-|---|---|---|
-| Agent decision auth | `core/agent_decisions/auth.py` | Agent bearer only; rejects Operational API pattern |
-| Decision persistence | `core/agent_decisions/models.py` | Auditable allow/deny + nonce + binding + TTL |
-| Binding + reason codes | `binding.py`, `reason_codes.py` | Argument hash; stable machine reasons |
-| Authorization service | `services.py` | Deny-by-default; Capability (`AgentToolGrant`) ≠ Authority (bound decision) |
-| HTTP endpoint | `api.py` | `POST /api/agent/v1/decisions/authorize` |
-| Process choke point | `processes/material_execution.py` | Subprocess only after `verify_and_consume_decision` |
-| Tests | `core/agent_decisions/tests.py` | allow, deny, replay, expiry, binding mismatch, outage, process path |
-
-### Endpoint contract
-
-- **URL:** `POST /api/agent/v1/decisions/authorize`
-- **Auth:** `Authorization: Bearer <QMS AuthToken for agent>`
-- **Not:** `/api/operational/v1/*` (operator + Core-MS service token)
-- **Contract:** `qms-agent-decision/0.1`
-
-### Capability vs Authority
-
-- **Capability probe:** existing `AgentToolGrant` on normalized key `{capability_key}:{material_action}` (tool-name layer retained, not sufficient alone).
-- **Authority decision:** persisted `AgentExecutionDecision` with `argument_binding`, `decision_nonce`, short TTL, auditable `decision_id`.
-- **Material execution:** requires consumed ALLOW decision; 48h spawn/JWT credentials do **not** authorize material actions.
-
-### Process material path
-
-`processes/material_execution.execute_process_material_action(...)` verifies decision then runs `subprocess.run(...)`. This is the first B-0.3 adapter surface; Hermes/Paperclip adapters remain future work in QMS/Paperclip lab harness.
-
-## Apply instructions (human or agents-os Cloud Agent)
+## Apply rework (agents-os)
 
 ```bash
-# In agents-os repo root on branch cursor/aad-57-slice-b0-c417 from master
-bash /path/to/paperclip/doc/agents-os/aad-57-slice-b0/apply-to-agents-os.sh
+# On PR #263 branch in agents-os
+bash /path/to/paperclip/doc/agents-os/aad-57-slice-b0-rework/apply-rework.sh
 
-# Wire router + INSTALLED_APPS per PATCHES.md
+# Follow REWORK.md manual steps (enforcement merge + services.py + MCP handler)
 
-.venv/bin/python manage.py makemigrations agent_decisions
-.venv/bin/python manage.py migrate
-
-# Targeted tests
-.venv/bin/python manage.py test core.agent_decisions.tests --verbosity=2
-
-# Repository standard CI
+.venv/bin/python manage.py test work_orders.tests.test_spawn_authorization -v2
+.venv/bin/python manage.py test integrations.mcp.tests.test_dispatch_authorization -v2
+.venv/bin/python manage.py test core.agent_decisions.tests -v2
+.venv/bin/python manage.py test workflows.tests.test_runtime -v1
 make ci
 ```
 
-## Expected test coverage (acceptance criteria mapping)
+## B-0 gate status
 
-| AC | Test |
+| Gate | Status |
 |---|---|
-| Callable endpoint with allow/deny + audit | `AgentDecisionApiTests`, `AgentDecisionServiceTests.test_allow_*`, `test_deny_*` |
-| Process path blocked without ALLOW | `ProcessMaterialExecutionTests.test_process_path_denied_without_decision` |
-| QMS outage/timeout fail-closed | `test_qms_unavailable_fail_closed`, `test_process_path_fail_closed_on_qms_outage` |
-| Argument mismatch | `test_reject_argument_mismatch_at_consume` |
-| Expiry + replay | `test_reject_expired_decision`, `test_reject_replayed_nonce` |
-| No Authority | `test_deny_without_authority` |
+| B-0.1 Agent-authenticated endpoint | **PASS** (PR #263) |
+| B-0.2 Argument binding | **PASS** (PR #263) |
+| B-0.3 ≥3 adapters incl. `process` | **REWORK** — spawn + MCP patches |
+| B-0.4 Short-lived nonce/TTL | **PASS** (PR #263) |
 
-## CI commands (agents-os standard)
+## Acceptance criteria mapping
 
-From merged PR #256 verification pattern:
+| AC | Evidence |
+|---|---|
+| No false claim of Core authorization without callable endpoint | PR #263 `POST /api/agent/action-decisions/` |
+| QMS matches/exceeds Paperclip binding/expiry/replay | PR #263 tests + Paperclip comparator doc |
+| Trust boundary + unmanaged paths documented | `AAD-57-UNMANAGED-PATH-INVENTORY.md` |
+| B-1 executable on ≥3 adapters | After rework + `AAD-57-SLICE-B1-HARNESS-PLAN.md` |
+| Architecture PR draft unmerged | Paperclip PR #1 remains NOT APPROVED |
 
-```bash
-.venv/bin/python manage.py test core.agent_decisions.tests --verbosity=2
-make ci
-# migrate-check, django-check, ruff, mypy, full test suite, test-scripts
-```
+## Cloud Agent note
 
-**Not run from Paperclip Cloud Agent** — no agents-os checkout access.
+Paperclip Cloud Agent cannot clone/write `aavendano/agents-os` (403). Rework is delivered as an exact patch bundle for apply in agents-os.
 
-## Paperclip PR scope (this repo)
+## Next steps
 
-- Patch bundle + plan only
-- Architecture proposal experiment evidence link
-- **No Paperclip backend canonicalization**
-- **Do not merge** architecture PR
-
-## Next after merge in agents-os
-
-1. Record agents-os PR URL in Paperclip architecture doc (B-0.1 evidence).
-2. Re-evaluate H1 from UNKNOWN → testable if endpoint + process choke point green.
-3. Proceed toward B-0.3 adapters 2–3 before Slice B-1.
-
-## Open gaps (unchanged)
-
-- Unmanaged MCP/host execution remains out-of-scope.
-- Lifecycle duplication Paperclip vs QMS not resolved by this slice.
-- Hermes session-key identity risk (H3 WEAKENED) unchanged.
+1. Apply rework to agents-os PR #263; push; re-request review.
+2. When B-0.3 green, execute B-1 harness cases B0–B10.
+3. Record CI evidence in Linear AAD-57.
+4. Human Direction review before architecture approval.
