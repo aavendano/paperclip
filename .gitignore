@@ -1,7 +1,5 @@
-node_modules
-node_modules/
-**/node_modules
-**/node_modules/
+node_modules/*
+**/node_modules/*
 dist/
 packages/paperclip-runner/runner/target/
 ui/storybook-static/
@@ -74,3 +72,7 @@ tests/storybook-visual/playwright-report/
 .vercel/
 .env.local
 test-results/
+certs/*
+Caddyfile
+acme-webroot/.well-known/acme-challenge/ping
+Caddyfile
