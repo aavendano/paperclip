@@ -124,7 +124,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --no-frozen-lockfile --prefer-offline
 
       - name: Verify runner Chrome
         # Release smoke also runs headless on GitHub's Ubuntu image, so use the
